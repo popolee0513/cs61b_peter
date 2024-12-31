@@ -14,6 +14,7 @@ public class IntListExercises {
             head.first += c;
             head = head.rest;
         }
+        head.first += c;
     }
 
     /**
@@ -36,12 +37,15 @@ public class IntListExercises {
     /** Returns the max value in the IntList starting at L. */
     public static int max(IntList L) {
         int max = L.first;
-        IntList p = L.rest;
-        while (p != null) {
+        IntList p = L;
+        while (p.rest != null) {
             if (p.first > max) {
                 max = p.first;
             }
             p = p.rest;
+        }
+        if (p.first > max) {
+            max = p.first;
         }
         return max;
     }
@@ -51,7 +55,7 @@ public class IntListExercises {
      */
     public static boolean firstDigitEqualsLastDigit(int x) {
         int lastDigit = x % 10;
-        while (x > 10) {
+        while (x >= 10) {
             x = x / 10;
         }
         int firstDigit = x % 10;
