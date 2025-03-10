@@ -1,26 +1,51 @@
 package gitlet;
+import java.io.File;
+import static gitlet.Utils.*;
+import static gitlet.Utils.sha1;
 
-// TODO: any imports you need here
+import java.io.Serializable;
+import java.util.*;
+import java.text.SimpleDateFormat;
 
-import java.util.Date; // TODO: You'll likely use this in this class
+public class Commit implements Serializable {
 
-/** Represents a gitlet commit object.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
- *
- *  @author TODO
- */
-public class Commit {
-    /**
-     * TODO: add instance variables here.
-     *
-     * List all instance variables of the Commit class here with a useful
-     * comment above them describing what that variable represents and how that
-     * variable is used. We've provided one example for `message`.
-     */
+    private final String messages;
+    private Date date;
+    public ArrayList<String> file;
+    public  HashMap<String, String> fileVersion;
+    public Commit parent;
+    public ArrayList<Commit> neighbors;
+    public String branch;
 
-    /** The message of this Commit. */
-    private String message;
+    public Commit(boolean isfirst, String messages) {
+        if (isfirst) {
+            this.date = new Date(0);
+            this.branch = "master";
+        }
+        else {
+            this.date = new Date();
+        }
+        this.messages = messages;
+        this.file = new ArrayList<>();
+        this.fileVersion = new HashMap<>();
+        this.neighbors = new ArrayList<>();
+    }
+    public String getMessage() {
+        return this.messages;
+    }
+    public String formatDate() {
+        SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss yyyy Z", Locale.ENGLISH);
+        sdf.setTimeZone(TimeZone.getTimeZone("GMT-8"));
+        return sdf.format(this.date);
+    }
+    public void addFile(String fileName, HashMap<String,String> versionDict) {
+        file.add(fileName);
+        fileVersion.put(fileName,versionDict.get(fileName));
+    }
 
-    /* TODO: fill in the rest of this class. */
+    public void saveCommit() {
+        String fileName = sha1(serialize(this));
+        File savePath = join(Repository.COMMITS_FOLDER,fileName);
+        writeObject(savePath,this);
+    }
 }
