@@ -89,7 +89,27 @@ public class Graph implements Serializable {
             head = head.parent;
         }
     }
+    public ArrayDeque<Commit> getRelation(String env) {
+        Commit head = this.branchMap.get(env);
+        ArrayDeque<Commit> rel = new ArrayDeque<Commit>();
 
+        while (head!= null) {
+            rel.addLast(head);
+            head = head.parent;
+        }
+        return rel;
+    }
+
+    public Commit findAncestor(ArrayDeque<Commit> r1,ArrayDeque<Commit> r2) {
+        Commit ancestor;
+        for (Commit element : r1) {
+            if (r2.contains(element)) {
+                ancestor = element;
+                return ancestor;
+            }
+        }
+        return null;
+    }
 
     public void printGraph() {
           Deque<Commit> queue = new ArrayDeque<>();
