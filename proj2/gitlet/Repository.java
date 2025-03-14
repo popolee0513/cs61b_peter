@@ -156,12 +156,13 @@ public class Repository implements Serializable {
         Graph graph = Graph.getGraph();
         String env = readObject(envfile,String.class);
         message("=== Branches ===");
+        message("*"+env);
         for (String branch : graph.branchMap.keySet()) {
             if (branch.equals("<s>")) {
                 continue;
             }
             if (branch.equals(env)) {
-                message("*"+branch);
+                continue;
             }   else  {
                 message(branch);
             }
@@ -192,8 +193,16 @@ public class Repository implements Serializable {
     private static boolean checkUntracked(String fileName) {
         String env = readObject(envfile, String.class);
         Graph graph = Graph.getGraph();
+        HashMap<String, String> delete = readObject(staging_d, HashMap.class);
+        if (delete.keySet().contains(fileName)) {
+           if (join(CWD,fileName).exists()) {
+               return true;
+           }
+        }
+        //未被追蹤
         if (!graph.branchMap.get(env).file.contains(fileName)) {
             HashMap<String, String> add = readObject(staging_a, HashMap.class);
+            // 未被暫存
             if (!add.keySet().contains(fileName)) {
                 return true;
             }
@@ -201,6 +210,7 @@ public class Repository implements Serializable {
         }
         return false;
     }
+
 
     public static void log() {
         String env = readObject(envfile,String.class);
@@ -284,9 +294,10 @@ public class Repository implements Serializable {
         HashMap<String,String> delete = readObject(staging_d,HashMap.class);
         List<String> files = plainFilenamesIn(CWD);
         Commit latest = graph.branchMap.get(env);
+        Commit target = graph.branchMap.get(branchName);
         for (String s : files) {
             // check whether there is an untracked file
-            if (checkUntracked(s)) {
+            if (checkUntracked(s) && target.file.contains(s)) {
                 message("There is an untracked file in the way; delete it, or add and commit it first.");
                 return ;
             }
@@ -299,7 +310,6 @@ public class Repository implements Serializable {
         delete.clear();
         writeObject(staging_a,add);
         writeObject(staging_d,delete);
-        Commit target = graph.branchMap.get(branchName);
         for (String f : target.file) {
             String file = readContentsAsString(join(BlOBS_FOLDER,target.fileVersion.get(f)));
             writeContents(join(CWD,f),file);
@@ -332,5 +342,136 @@ public class Repository implements Serializable {
         writeObject(staging_a,add);
         writeObject(staging_d,delete);
     }
+    public static void merge(String branchName) {
+        String env = readObject(envfile,String.class);
+        HashMap<String,String> add = readObject(staging_a,HashMap.class);
+        Graph graph = Graph.getGraph();
+        HashMap<String,String> delete = readObject(staging_d,HashMap.class);
+        if (env.equals(branchName)) {
+            message("Cannot merge a branch with itself.");
+            return;
+        }
+        if (!graph.branchMap.keySet().contains(branchName)) {
+            message("A branch with that name does not exist.");
+            return;
+        }
+        if (add.isEmpty() == false || delete.isEmpty() == false) {
+            message("You have uncommitted changes.");
+            return;
+        }
+        List<String> filesCWD = plainFilenamesIn(CWD);
+        for (String s : filesCWD) {
+            if (checkUntracked(s)) {
+                message("There is an untracked file in the way; delete it, or add and commit it first.");
+                return ;
+            }
+        }
+        Commit ancestor = graph.findAncestor(graph.getRelation(env),graph.getRelation(branchName)) ;
+        if ( sha1(serialize(ancestor)).equals(sha1(serialize(graph.branchMap.get(branchName))))
+        ) {
+            message("Given branch is an ancestor of the current branch.");
+            return;
+        }
+
+        if (sha1(serialize(ancestor)).equals(sha1(serialize(graph.branchMap.get(env))))) {
+            message("Current branch fast-forwarded.");
+            graph.branchMap.put(env,graph.branchMap.get(branchName));
+            checkoutBranch(branchName);
+            return ;
+        }
+        Commit current = graph.branchMap.get(env);
+        Commit merged = graph.branchMap.get(branchName);
+        boolean flag = true;
+        for (String file : ancestor.file) {
+            if (current.file.contains(file)) {
+                if (!merged.file.contains(file) &&
+                        current.fileVersion.get(file).equals(ancestor.fileVersion.get(file))) {
+                    restrictedDelete(file);
+                    delete.put(file,current.fileVersion.get(file));
+                }
+                if (!merged.file.contains(file) &&
+                        !current.fileVersion.get(file).equals(ancestor.fileVersion.get(file))) {
+                    message("Encountered a merge conflict.");
+                    String curFile = readContentsAsString(join(BlOBS_FOLDER,current.fileVersion.get(file)));
+                    String out = "<<<<<<< HEAD\n"
+                                  + curFile
+                                  + "=======\n"
+                                  + ">>>>>>>\n";
+                    writeContents(join(BlOBS_FOLDER,sha1(serialize(out))),out);
+                    writeContents(join(CWD,file),out);
+                    add.put(file,sha1(serialize(out)));
+                    flag = false;
+                }
+            }
+            if (merged.file.contains(file)) {
+                if (!current.file.contains(file) &&
+                        !merged.fileVersion.get(file).equals(ancestor.fileVersion.get(file))) {
+                    message("Encountered a merge conflict.");
+                    String mergedFile = readContentsAsString(join(BlOBS_FOLDER,merged.fileVersion.get(file)));
+                    String out = "<<<<<<< HEAD\n"
+                                 + "=======\n"
+                                 + mergedFile
+                                 + ">>>>>>>\n";
+                    writeContents(join(BlOBS_FOLDER,sha1(serialize(out))),out);
+                    writeContents(join(CWD,file),out);
+                    add.put(file,sha1(serialize(out)));
+                    flag = false;
+                }
+            }
+
+            if (current.file.contains(file) && merged.file.contains(file)) {
+                // 兩分支相同方式修改的檔案
+                if (current.fileVersion.get(file).equals(merged.fileVersion.get(file))) {
+                    continue;
+                }
+                //給定分支修改過的檔案（未修改於當前分支）
+                else if (!merged.fileVersion.get(file).equals(ancestor.fileVersion.get(file))
+                        && current.fileVersion.get(file).equals(ancestor.fileVersion.get(file))) {
+                    add.put(file,merged.fileVersion.get(file));
+                    String c = readContentsAsString(join(BlOBS_FOLDER,merged.fileVersion.get(file)));
+                    writeContents(join(CWD,file),c);
+                }
+                //當前分支修改過的檔案（未修改於給定分支)
+                else if (merged.fileVersion.get(file).equals(ancestor.fileVersion.get(file))
+                        && !current.fileVersion.get(file).equals(ancestor.fileVersion.get(file))) {
+                    continue;
+                }
+                else if (!current.fileVersion.get(file).equals(merged.fileVersion.get(file))) {
+                    message("Encountered a merge conflict.");
+                    String curFile = readContentsAsString(join(BlOBS_FOLDER,current.fileVersion.get(file)));
+                    String mergeFile = readContentsAsString(join(BlOBS_FOLDER,merged.fileVersion.get(file)));
+                    String out = "<<<<<<< HEAD\n"
+                                 + curFile
+                                 + "=======\n"
+                                 + mergeFile
+                                 + ">>>>>>>\n";
+                    writeContents(join(BlOBS_FOLDER,sha1(serialize(out))),out);
+                    writeContents(join(CWD,file),out);
+                    add.put(file,sha1(serialize(out)));
+                    flag = false;
+                }
+            }
+        }
+        //僅在當前分支存在的檔案
+        //for (String file : current.file) {
+        //if (!ancestor.file.contains(file) && !merged.file.contains(file)){
+        //
+        //    }
+        //}
+        // 僅在給定分支存在的檔案
+        for (String file : merged.file) {
+            if (!ancestor.file.contains(file) && !current.file.contains(file)){
+                add.put(file,merged.fileVersion.get(file));
+                String c = readContentsAsString(join(BlOBS_FOLDER,merged.fileVersion.get(file)));
+                writeContents(join(CWD,file),c);
+            }
+        }
+        writeObject(staging_a,add);
+        writeObject(staging_d,delete);
+        if (flag) {
+            commit("Merged "+ branchName +" into " + env + ".");
+        }
+    }
+
 }
 

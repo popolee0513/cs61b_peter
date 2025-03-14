@@ -75,6 +75,7 @@ public class Main {
                 break;
             case "merge":
                 if (!checkInit()) {break;};
+                Repository.merge(args[1]);
                 break;
             case "reset":
                 validateNumArgs("reset", args, 2);
