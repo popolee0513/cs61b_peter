@@ -15,7 +15,9 @@ public class Commit implements Serializable {
     public  HashMap<String, String> fileVersion;
     public Commit parent;
     public ArrayList<Commit> neighbors;
+    public Commit merged;
     public String branch;
+    public String commitID;
 
     public Commit(boolean isfirst, String messages) {
         if (isfirst) {
@@ -29,6 +31,7 @@ public class Commit implements Serializable {
         this.file = new ArrayList<>();
         this.fileVersion = new HashMap<>();
         this.neighbors = new ArrayList<>();
+        this.commitID = sha1(serialize(this));
     }
     public String getMessage() {
         return this.messages;
@@ -44,8 +47,7 @@ public class Commit implements Serializable {
     }
 
     public void saveCommit() {
-        String fileName = sha1(serialize(this));
-        File savePath = join(Repository.COMMITS_FOLDER,fileName);
+        File savePath = join(Repository.COMMITS_FOLDER,this.commitID );
         writeObject(savePath,this);
     }
 }

@@ -367,13 +367,11 @@ public class Repository implements Serializable {
             }
         }
         Commit ancestor = graph.findAncestor(graph.getRelation(env),graph.getRelation(branchName)) ;
-        if ( sha1(serialize(ancestor)).equals(sha1(serialize(graph.branchMap.get(branchName))))
-        ) {
+        if (ancestor.commitID.equals(graph.branchMap.get(branchName).commitID)) {
             message("Given branch is an ancestor of the current branch.");
             return;
         }
-
-        if (sha1(serialize(ancestor)).equals(sha1(serialize(graph.branchMap.get(env))))) {
+        if (ancestor.commitID.equals(graph.branchMap.get(env).commitID)) {
             message("Current branch fast-forwarded.");
             graph.branchMap.put(env,graph.branchMap.get(branchName));
             checkoutBranch(branchName);
@@ -465,6 +463,10 @@ public class Repository implements Serializable {
         writeObject(staging_a,add);
         writeObject(staging_d,delete);
         commit("Merged "+ branchName +" into " + env + ".");
+        graph = Graph.getGraph();
+        Commit head = graph.branchMap.get(env);
+        head.merged = merged;
+        graph.saveGraph();
     }
 
 }
