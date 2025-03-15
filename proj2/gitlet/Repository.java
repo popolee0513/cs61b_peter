@@ -381,7 +381,6 @@ public class Repository implements Serializable {
         }
         Commit current = graph.branchMap.get(env);
         Commit merged = graph.branchMap.get(branchName);
-        boolean flag = true;
         for (String file : ancestor.file) {
             if (current.file.contains(file)) {
                 if (!merged.file.contains(file) &&
@@ -400,7 +399,6 @@ public class Repository implements Serializable {
                     writeContents(join(BlOBS_FOLDER,sha1(serialize(out))),out);
                     writeContents(join(CWD,file),out);
                     add.put(file,sha1(serialize(out)));
-                    flag = false;
                 }
             }
             if (merged.file.contains(file)) {
@@ -415,7 +413,6 @@ public class Repository implements Serializable {
                     writeContents(join(BlOBS_FOLDER,sha1(serialize(out))),out);
                     writeContents(join(CWD,file),out);
                     add.put(file,sha1(serialize(out)));
-                    flag = false;
                 }
             }
 
@@ -448,7 +445,6 @@ public class Repository implements Serializable {
                     writeContents(join(BlOBS_FOLDER,sha1(serialize(out))),out);
                     writeContents(join(CWD,file),out);
                     add.put(file,sha1(serialize(out)));
-                    flag = false;
                 }
             }
         }
@@ -468,9 +464,7 @@ public class Repository implements Serializable {
         }
         writeObject(staging_a,add);
         writeObject(staging_d,delete);
-        if (flag) {
-            commit("Merged "+ branchName +" into " + env + ".");
-        }
+        commit("Merged "+ branchName +" into " + env + ".");
     }
 
 }
