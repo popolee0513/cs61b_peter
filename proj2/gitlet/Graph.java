@@ -36,7 +36,7 @@ public class Graph implements Serializable {
         queue.addLast(start);
         while (!queue.isEmpty()) {
             Commit  node = queue.removeFirst();
-            if (sha1(serialize(node)).substring(0, 6).equals(commitID.substring(0, 6))) {
+            if (node.commitID.substring(0, 6).equals(commitID.substring(0, 6))) {
                 return node;
             }
             System.out.println();
@@ -54,7 +54,7 @@ public class Graph implements Serializable {
         while (!queue.isEmpty()) {
             Commit  node = queue.removeFirst();
             if (node.getMessage().equals(commitMessage)) {
-                message(sha1(serialize(node)));
+                message(node.commitID);
                 flag = true;
             }
             for (Commit i : node.neighbors) {
@@ -82,7 +82,12 @@ public class Graph implements Serializable {
         Commit head = this.branchMap.get(env);
         while (head!= null) {
             message("===");
-            message("commit " + sha1(serialize(head)));
+            message("commit " + head.commitID);
+            if (head.getMessage().contains("Merged")) {
+                message("Merge: " + head.parent.commitID.substring(0, 7) + " "
+                        + head.merged.commitID.substring(0, 7)
+                );
+            }
             message("Date: " + head.formatDate());
             message(head.getMessage());
             System.out.println();
@@ -117,7 +122,7 @@ public class Graph implements Serializable {
           while (!queue.isEmpty()) {
                  Commit  node = queue.removeFirst();
                  message("===");
-                 message("commit " + sha1(serialize(node)));
+                 message("commit " + node.commitID);
                  message("Date: " + node.formatDate());
                  message(node.getMessage());
                  System.out.println();

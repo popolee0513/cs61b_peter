@@ -63,20 +63,20 @@ public class Repository implements Serializable {
 
         String savedFile = readContentsAsString(dogFile);
         String env = readObject(envfile,String.class);
-        String hexString = sha1(readContentsAsString(dogFile));
+        String version = sha1(readContentsAsString(dogFile));
 
         // 獲取當前分支的最新提交, 如果內容相同, return
         Graph graph = Graph.getGraph();
         Commit latest = graph.branchMap.get(env);
         if (latest.file !=null) {
             if (latest.file.contains(fileName)) {
-                if (latest.fileVersion.get(fileName).equals(hexString)) {
+                if (latest.fileVersion.get(fileName).equals(version)) {
                     return;
                 }
             }
         }
-        writeContents(join(BlOBS_FOLDER,hexString),savedFile);
-        add.put(fileName,hexString);
+        writeContents(join(BlOBS_FOLDER,version),savedFile);
+        add.put(fileName,version);
         writeObject(staging_a,add);
     }
     public static void commit(String message) {
@@ -142,9 +142,10 @@ public class Repository implements Serializable {
             return;
         }
         String fileVersion = target.fileVersion.get(fileName);
-        HashMap<String,String> stagingArea = readObject(staging_a,HashMap.class);
-        if (stagingArea.keySet().contains(fileName)) {
-            stagingArea.remove(fileName);
+        HashMap<String,String> add = readObject(staging_a,HashMap.class);
+        //The new version of the file is not staged.
+        if (add.keySet().contains(fileName)) {
+            add.remove(fileName);
         }
 
         String source = readContentsAsString(join(BlOBS_FOLDER,fileVersion));
@@ -367,13 +368,11 @@ public class Repository implements Serializable {
             }
         }
         Commit ancestor = graph.findAncestor(graph.getRelation(env),graph.getRelation(branchName)) ;
-        if ( sha1(serialize(ancestor)).equals(sha1(serialize(graph.branchMap.get(branchName))))
-        ) {
+        if (ancestor.commitID.equals(graph.branchMap.get(branchName).commitID)) {
             message("Given branch is an ancestor of the current branch.");
             return;
         }
-
-        if (sha1(serialize(ancestor)).equals(sha1(serialize(graph.branchMap.get(env))))) {
+        if (ancestor.commitID.equals(graph.branchMap.get(env).commitID)) {
             message("Current branch fast-forwarded.");
             graph.branchMap.put(env,graph.branchMap.get(branchName));
             checkoutBranch(branchName);
@@ -465,6 +464,10 @@ public class Repository implements Serializable {
         writeObject(staging_a,add);
         writeObject(staging_d,delete);
         commit("Merged "+ branchName +" into " + env + ".");
+        graph = Graph.getGraph();
+        Commit head = graph.branchMap.get(env);
+        head.merged = merged;
+        graph.saveGraph();
     }
 
 }
