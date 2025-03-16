@@ -276,6 +276,23 @@ public class Repository implements Serializable {
         graph.removeBranch(branchName);
         graph.saveGraph();
     }
+    private static void rewriteCwd(Commit commitID) {
+        HashMap<String,String> add = readObject(staging_a,HashMap.class);
+        HashMap<String,String> delete = readObject(staging_d,HashMap.class);
+        List<String> files = plainFilenamesIn(CWD);
+        for (String s : files) {
+            File file = join(CWD,s);
+            restrictedDelete(file);
+        }
+        add.clear();
+        delete.clear();
+        writeObject(staging_a,add);
+        writeObject(staging_d,delete);
+        for (String f :  commitID.file) {
+            String file = readContentsAsString(join(BlOBS_FOLDER,commitID.fileVersion.get(f)));
+            writeContents(join(CWD,f),file);
+        }
+    }
     public static void checkoutBranch(String branchName) {
         Graph graph = Graph.getGraph();
         String env = readObject(envfile,String.class);
@@ -291,11 +308,8 @@ public class Repository implements Serializable {
             writeObject(envfile,branchName);
             return ;
         }
-        HashMap<String,String> add = readObject(staging_a,HashMap.class);
-        HashMap<String,String> delete = readObject(staging_d,HashMap.class);
-        List<String> files = plainFilenamesIn(CWD);
-        Commit latest = graph.branchMap.get(env);
         Commit target = graph.branchMap.get(branchName);
+        List<String> files = plainFilenamesIn(CWD);
         for (String s : files) {
             // check whether there is an untracked file
             if (checkUntracked(s) && target.file.contains(s)) {
@@ -303,18 +317,7 @@ public class Repository implements Serializable {
                 return ;
             }
         }
-        for (String s : files) {
-            File file = join(CWD,s);
-            restrictedDelete(file);
-        }
-        add.clear();
-        delete.clear();
-        writeObject(staging_a,add);
-        writeObject(staging_d,delete);
-        for (String f : target.file) {
-            String file = readContentsAsString(join(BlOBS_FOLDER,target.fileVersion.get(f)));
-            writeContents(join(CWD,f),file);
-        }
+        rewriteCwd(target);
         writeObject(envfile,branchName);
     }
     public static void reset(String commitID){
@@ -326,7 +329,6 @@ public class Repository implements Serializable {
         }
         List<String> files = plainFilenamesIn(CWD);
         String env = readObject(envfile,String.class);
-        Commit latest = graph.branchMap.get(env);
         for (String s : files) {
             // check whether there is an untracked file
             if (checkUntracked(s)) {
@@ -336,12 +338,7 @@ public class Repository implements Serializable {
         }
         graph.branchMap.put(env,node);
         graph.saveGraph();
-        HashMap<String,String> add = readObject(staging_a,HashMap.class);
-        HashMap<String,String> delete = readObject(staging_d,HashMap.class);
-        add.clear();
-        delete.clear();
-        writeObject(staging_a,add);
-        writeObject(staging_d,delete);
+        rewriteCwd(node);
     }
     public static void merge(String branchName) {
         String env = readObject(envfile,String.class);
